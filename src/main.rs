@@ -87,6 +87,7 @@ struct Chromator {
     val: f32, // 0.0–1.0
     sv_texture: Option<egui::TextureHandle>,
     sv_texture_hue: f32,
+    hue_texture: Option<egui::TextureHandle>,
 }
 
 impl Default for Chromator {
@@ -97,6 +98,7 @@ impl Default for Chromator {
             val: 1.0,
             sv_texture: None,
             sv_texture_hue: -1.0,
+            hue_texture: None,
         }
     }
 }
@@ -249,32 +251,39 @@ impl Chromator {
             }
         }
 
-        let painter = ui.painter_at(rect);
-        let segments = 256_u32;
-        let seg_w = rect.width() / segments as f32;
+        // Generate hue texture once (it never changes)
+        if self.hue_texture.is_none() {
+            let tex_width = 512;
+            let mut pixels = Vec::with_capacity(tex_width);
+            for i in 0..tex_width {
+                let h = i as f32 / (tex_width - 1) as f32;
+                let (cr, cg, cb) = hsv_to_rgb(h, 1.0, 1.0);
+                pixels.push(egui::Color32::from_rgb(
+                    (cr * 255.0) as u8,
+                    (cg * 255.0) as u8,
+                    (cb * 255.0) as u8,
+                ));
+            }
+            let image = egui::ColorImage {
+                size: [tex_width, 1],
+                pixels,
+            };
+            self.hue_texture = Some(ui.ctx().load_texture("hue_bar", image, egui::TextureOptions::LINEAR));
+        }
 
-        for i in 0..segments {
-            let h = i as f32 / segments as f32;
-            let (cr, cg, cb) = hsv_to_rgb(h, 1.0, 1.0);
-            let color = egui::Color32::from_rgb(
-                (cr * 255.0) as u8,
-                (cg * 255.0) as u8,
-                (cb * 255.0) as u8,
-            );
-            let seg_rect = egui::Rect::from_min_size(
-                egui::pos2(rect.left() + i as f32 * seg_w, rect.top()),
-                egui::vec2(seg_w + 0.5, bar_height),
-            );
-            painter.rect_filled(seg_rect, 0.0, color);
+        // Paint the texture
+        if let Some(tex) = &self.hue_texture {
+            let uv = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
+            ui.painter().image(tex.id(), rect, uv, egui::Color32::WHITE);
         }
 
         // Indicator line at current hue
         let hx = rect.left() + self.hue * rect.width();
-        painter.line_segment(
+        ui.painter().line_segment(
             [egui::pos2(hx, rect.top()), egui::pos2(hx, rect.bottom())],
             egui::Stroke::new(2.0, egui::Color32::WHITE),
         );
-        painter.line_segment(
+        ui.painter().line_segment(
             [egui::pos2(hx, rect.top()), egui::pos2(hx, rect.bottom())],
             egui::Stroke::new(1.0, egui::Color32::BLACK),
         );

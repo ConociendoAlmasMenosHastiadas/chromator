@@ -1,0 +1,20 @@
+# Build artifacts
+/target/
+debug/
+*.pdb
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Env
+.env
+.env.*
